@@ -260,7 +260,9 @@ body::before{
 .opt-fig.juste{border-color:var(--vert); background:rgba(79,195,138,.16);}
 .opt-fig.faux{border-color:var(--rouge); background:rgba(240,101,94,.14);}
 .opt-fig .lettre{font-family:var(--display); font-weight:700; font-size:13px; color:var(--doux);}
-.grille-fig{display:flex; gap:12px; flex-wrap:wrap; justify-content:center;}
+.grille-fig{display:flex; gap:14px; flex-wrap:wrap; justify-content:center;}
+.opt-fig svg, .fig-cible svg{max-width:100%; height:auto; display:block;}
+.fig-cible{max-width:100%;}
 
 /* résultat */
 .bilan-fin{
@@ -357,63 +359,93 @@ function siteSVG(tx,ty,deg,forme,col){
     let s='';
     for(const sg of [1,-1]){
       const e=(deg+sg*40)*Math.PI/180;
-      s+=L(tx,ty,tx+11*Math.cos(e),ty+11*Math.sin(e));
+      s+=L(tx,ty,tx+14*Math.cos(e),ty+14*Math.sin(e));
     }
     return s;
   }
   if(forme==='C'){
-    const b=6.5;
+    const b=8;
     const a1x=tx+b*px, a1y=ty+b*py, a2x=tx-b*px, a2y=ty-b*py;
-    return L(a1x,a1y,a2x,a2y)+L(a1x,a1y,a1x+8*ux,a1y+8*uy)+L(a2x,a2y,a2x+8*ux,a2y+8*uy);
+    return L(a1x,a1y,a2x,a2y)+L(a1x,a1y,a1x+10*ux,a1y+10*uy)+L(a2x,a2y,a2x+10*ux,a2y+10*uy);
   }
-  const rad=7, cx=tx+rad*ux, cy=ty+rad*uy;
+  const rad=9.5, cx=tx+rad*ux, cy=ty+rad*uy;
   const a=(deg+90)*Math.PI/180, b2=(deg+270)*Math.PI/180;
   return `<path d="M ${(cx+rad*Math.cos(a)).toFixed(1)} ${(cy+rad*Math.sin(a)).toFixed(1)}
            A ${rad} ${rad} 0 0 1 ${(cx+rad*Math.cos(b2)).toFixed(1)} ${(cy+rad*Math.sin(b2)).toFixed(1)}" fill="none"/>`;
 }
-function anticorpsSVG(forme,taille=96){
-  const col=AC_COL[forme];
+
+/* le Y de l'anticorps, dans son repère propre (100 x 96) */
+function corpsAcSVG(forme,col,sw){
   const fx=50,fy=64, lx=26,ly=32, rx=74,ry=32;
   const dg=(ax,ay)=>Math.atan2(ay-fy,ax-fx)*180/Math.PI;
-  return `<svg viewBox="0 0 100 96" width="${taille}" height="${taille*.96}" aria-hidden="true">
-    <g stroke="${col}" stroke-width="5.5" stroke-linecap="round" fill="none">
-      <line x1="50" y1="90" x2="${fx}" y2="${fy}"/>
+  return `<g stroke="${col}" stroke-width="${sw}" stroke-linecap="round" fill="none">
+      <line x1="50" y1="99" x2="${fx}" y2="${fy}"/>
       <line x1="${fx}" y1="${fy}" x2="${lx}" y2="${ly}"/>
       <line x1="${fx}" y1="${fy}" x2="${rx}" y2="${ry}"/>
       ${siteSVG(lx,ly,dg(lx,ly),forme,col)}
       ${siteSVG(rx,ry,dg(rx,ry),forme,col)}
-    </g></svg>`;
+    </g>`;
 }
-function antigeneSVG(forme,x,y,haut){
-  const s=haut?1:-1;
-  if(forme==='T') return `<polygon points="${x-8},${y} ${x+8},${y} ${x},${y+s*11}"/>`;
-  if(forme==='C') return `<rect x="${x-7}" y="${haut?y-10:y}" width="14" height="10"/>`;
-  return `<path d="M ${x-8} ${y} a 8 8 0 0 ${haut?1:0} 16 0 z"/>`;
+
+/* loupe : le bout de la branche, agrandi, pour qu'on voie la forme de l'encoche */
+function loupeSVG(LX,LY,LR,forme,col,depuis){
+  const k=2.7, hx=LX+LR*0.72, hy=LY+LR*0.72;
+  const lien = depuis
+    ? `<line x1="${depuis[0]}" y1="${depuis[1]}" x2="${(LX-LR*0.74).toFixed(1)}" y2="${(LY-LR*0.5).toFixed(1)}"
+            stroke="#3C5A72" stroke-width="2" stroke-dasharray="5 5"/>` : '';
+  return `${lien}
+    <line x1="${hx.toFixed(1)}" y1="${hy.toFixed(1)}" x2="${(hx+LR*0.72).toFixed(1)}" y2="${(hy+LR*0.72).toFixed(1)}"
+          stroke="#5E7D96" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="${LX}" cy="${LY}" r="${LR}" fill="#0E1F2E" stroke="#5E7D96" stroke-width="3.5"/>
+    <g transform="translate(${LX},${LY+8}) scale(${k})">
+      <g stroke="${col}" stroke-width="${(6/k).toFixed(2)}" stroke-linecap="round" fill="none">
+        <line x1="0" y1="5" x2="0" y2="0"/>
+        ${siteSVG(0,0,-90,forme,col)}
+      </g></g>`;
 }
-function pathogeneSVG(forme,taille=170){
-  let ag='';
-  for(const dx of [-34,0,34]){ ag+=antigeneSVG(forme,90+dx,34,true); ag+=antigeneSVG(forme,90+dx,86,false); }
-  return `<svg viewBox="0 0 180 120" width="${taille}" height="${taille*120/180}" aria-hidden="true">
-    <g fill="#3E7CB8" stroke="#8FC4EE" stroke-width="2">
-      <rect x="24" y="34" width="132" height="52" rx="26"/>${ag}
-    </g></svg>`;
-}
-function lymphoSVG(forme,taille=120){
+
+function anticorpsSVG(forme,taille=196){
   const col=AC_COL[forme];
-  let acs='';
-  [[60,26,-90],[26,52,-150],[94,52,-30]].forEach(([x,y,a])=>{
-    acs+=`<g transform="translate(${x},${y}) rotate(${a+90}) scale(.42) translate(-50,-90)">
-       <g stroke="${col}" stroke-width="11" stroke-linecap="round" fill="none">
-         <line x1="50" y1="90" x2="50" y2="64"/><line x1="50" y1="64" x2="26" y2="32"/><line x1="50" y1="64" x2="74" y2="32"/>
-         ${siteSVG(26,32,Math.atan2(32-64,26-50)*180/Math.PI,forme,col)}
-         ${siteSVG(74,32,Math.atan2(32-64,74-50)*180/Math.PI,forme,col)}
-       </g></g>`;
-  });
-  return `<svg viewBox="0 0 120 120" width="${taille}" height="${taille}" aria-hidden="true">
-    <circle cx="60" cy="66" r="34" fill="#C9B8E8" stroke="#9E8FC7" stroke-width="2"/>
-    <circle cx="60" cy="66" r="26" fill="#D9A9C4" stroke="#C08AA8" stroke-width="1.6"/>
-    ${acs}</svg>`;
+  return `<svg viewBox="0 0 215 132" width="${taille}" height="${(taille*132/215).toFixed(0)}" aria-hidden="true">
+    <g transform="translate(60,116) scale(1) translate(-50,-90)">${corpsAcSVG(forme,col,6)}</g>
+    ${loupeSVG(158,52,36,forme,col,[98,46])}
+  </svg>`;
 }
+
+function antigeneSVG(forme,x,y,haut){
+  const s = haut ? -1 : 1;                 // haut : l'antigène dépasse vers le haut
+  if(forme==='T') return `<polygon points="${x-11},${y} ${x+11},${y} ${x},${y+s*15}"/>`;
+  if(forme==='C') return `<rect x="${x-10}" y="${haut?y-14:y}" width="20" height="14"/>`;
+  return `<path d="M ${x-11} ${y} a 11 11 0 0 ${haut?0:1} 22 0 z"/>`;
+}
+
+function pathogeneSVG(forme,taille=212){
+  let ag='';
+  for(const dx of [-37,0,37]){ ag+=antigeneSVG(forme,90+dx,40,true); ag+=antigeneSVG(forme,90+dx,96,false); }
+  return `<svg viewBox="0 0 180 136" width="${taille}" height="${(taille*136/180).toFixed(0)}" aria-hidden="true">
+    <g fill="#3E7CB8" stroke="#9FCDF0" stroke-width="2.2">
+      <rect x="22" y="40" width="136" height="56" rx="28"/>${ag}
+    </g></svg>`;
+}
+
+function lymphoSVG(forme,taille=232){
+  const col=AC_COL[forme];
+  const cx=100, cy=140, R=38;
+  let acs='';
+  [-118,-62].forEach(a=>{
+    const r=a*Math.PI/180;
+    const x=cx+(R-3)*Math.cos(r), y=cy+(R-3)*Math.sin(r);
+    acs+=`<g transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${a+90}) scale(.95) translate(-50,-90)">
+       ${corpsAcSVG(forme,col,6)}</g>`;
+  });
+  return `<svg viewBox="0 0 262 206" width="${taille}" height="${(taille*206/262).toFixed(0)}" aria-hidden="true">
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="#C9B8E8" stroke="#9E8FC7" stroke-width="2.4"/>
+    <circle cx="${cx}" cy="${cy}" r="${(R*0.72).toFixed(0)}" fill="#D9A9C4" stroke="#C08AA8" stroke-width="1.8"/>
+    ${acs}
+    ${loupeSVG(206,72,38,forme,col,[156,52])}
+  </svg>`;
+}
+
 function antibiogrammeSVG(halos){
   const pos=[[62,62],[138,62],[138,138],[62,138]], lettres=['A','B','C','D'];
   let d='';
@@ -633,7 +665,7 @@ const THEMES = [
       'quelques secondes','quelques minutes','plusieurs jours','plusieurs mois'], b:2,
       e:'Plusieurs jours : c\'est ce délai qui rend l\'infection dangereuse au début.'},
     {t:'figure', q:'Voici un pathogène. Quel anticorps peut le neutraliser ?',
-      cible:pathogeneSVG('C'), sousCible:'Regarde bien la forme de ses antigènes.',
+      cible:pathogeneSVG('C'), sousCible:'Regarde bien la forme de ses antigènes. La loupe montre le bout de chaque anticorps.',
       oFig:[anticorpsSVG('T'),anticorpsSVG('C'),anticorpsSVG('R')], b:1,
       e:'Les antigènes sont carrés : il faut un anticorps dont les deux sites ont une encoche carrée.'},
     {t:'qcm', q:'On injecte à une souris du sérum de cheval guéri du <b>tétanos</b>, puis la toxine de la <b>diphtérie</b>. Que se passe-t-il ?', o:[
@@ -676,7 +708,7 @@ const THEMES = [
       'un seul','deux','autant qu\'il y a d\'intrus','aucun'], b:0,
       e:'Un seul. C\'est pour cela qu\'il faut du temps pour trouver LE bon lymphocyte parmi tous les autres.'},
     {t:'figure', q:'Voici un pathogène. Quel lymphocyte B va le reconnaître ?',
-      cible:pathogeneSVG('R'), sousCible:'Ses antigènes sont arrondis.',
+      cible:pathogeneSVG('R'), sousCible:'Ses antigènes sont arrondis. La loupe montre le bout des anticorps de chaque lymphocyte.',
       oFig:[lymphoSVG('T'),lymphoSVG('R'),lymphoSVG('C')], b:1,
       e:'Seul le lymphocyte dont les anticorps ont une encoche arrondie peut s\'emboîter avec ces antigènes.'},
     {t:'qcm', q:'Les antigènes, ce sont…', o:[

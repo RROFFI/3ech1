@@ -416,7 +416,7 @@ function antigeneSVG(forme,x,y,haut){
   const s = haut ? -1 : 1;                 // haut : l'antigène dépasse vers le haut
   if(forme==='T') return `<polygon points="${x-11},${y} ${x+11},${y} ${x},${y+s*15}"/>`;
   if(forme==='C') return `<rect x="${x-10}" y="${haut?y-14:y}" width="20" height="14"/>`;
-  return `<path d="M ${x-11} ${y} a 11 11 0 0 ${haut?0:1} 22 0 z"/>`;
+  return `<path d="M ${x-11} ${y} a 11 11 0 0 ${haut?1:0} 22 0 z"/>`;
 }
 
 function pathogeneSVG(forme,taille=212){
